@@ -1,7 +1,6 @@
 http://www.google.com
 http://www.apple.com
-http://www.xszt.com
 http://www.games-workshop.com
-http://www.xyz
 http://www.boeing.com
 http://www.nasa.gov
+http://xyz.zulu
