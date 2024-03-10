@@ -4,16 +4,16 @@ from bs4 import BeautifulSoup
 import logging
 import asyncio, time
 
+
 async def read_urls(path: str) -> list[str]:
     logging.debug(f"Reading URLs from: {path}")
-    config_file = open(path, "r")
-    data = config_file.read()
-    
-    # convert data into list
-    url_list = data.split("\n")
-    config_file.close
-    
-    return url_list
+    try:
+        with open(path, "r") as config_file:
+            url_list = config_file.readlines()  # Use readlines for efficiency
+        return [url.strip() for url in url_list]  # Strip whitespaces
+    except FileNotFoundError as e:
+        logging.error(f"Error reading URL file: {path} - {e}")
+        return []
 
 async def validate_url(url_string: str) -> bool:
     result = url(url_string)
@@ -40,6 +40,8 @@ async def is_url_available(url_string: url) -> tuple[bytes, bool]:
         logging.debug(f"Checking availability for {url_string}")
         response = get(url_string, timeout=(20, None))
         logging.debug(f"Processed request in {response.elapsed}")
+        
+        # using perhaps 200 and 202 may be enough, not sure if we should care about other ststus codes yet.
         if response.status_code in [200, 202, 301, 302, 400, 401, 403, 500, 503]:
             logging.debug(f"{url_string} responded with code {response.status_code}")
             return response.content, True
@@ -63,16 +65,22 @@ async def periodic(interval_sec, coroutine_name, *args, **kwargs):
 async def read_url_task():
     url_strings = await read_urls("url-list.txt")
     
+    # if the url strings list is empty just exit
+    if not url_strings: 
+        return
+    
+    #iterate through the URL Strings and try to validate them.
     for url_string in url_strings:
-        if await validate_url(url_string):
+        if not await validate_url(url_string):
             # now let's find some kind of string in the URL
-            content, is_valid = await is_url_available(url_string)
-            if content is not None and await find_string_in_url(content, "Google"):
-                logging.debug(f"Found text in the returned content")
-            else:
-                logging.debug(f"Text was not found")
-        else:
             logging.debug(f"{url_string} is not valid")
+            continue
+
+        content, is_valid = await is_url_available(url_string)
+        if content is not None and await find_string_in_url(content, "Google"):
+            logging.debug(f"Found text in the returned content")
+        else:
+            logging.debug(f"Text was not found")
     
 async def main():
     # create a task and schedule it every x seconds
